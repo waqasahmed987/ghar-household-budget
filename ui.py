@@ -341,3 +341,6 @@ def render_app():
                         planned_savings=savings_target,
                         bank_balance=bank_total,
                     )
+                st.markdown(answer)
+            except Exception as error:
+                st.error(f"Groq request failed: {error}")
