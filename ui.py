@@ -130,35 +130,9 @@ def render_app():
         ]
     )
 
-
-
-
-        with overview_tab:
-        st.subheader("Monthly dashboard")
-        st.caption(
-            f"{selected_month.strftime('%B %Y')} · A snapshot of your household finances"
-        )
-
-        # Summary cards
-        cards = st.columns(4)
-        cards[0].metric("Expected income", _money(expected_income))
-        cards[1].metric("Actual income", _money(income_total))
-        cards[2].metric(
-            "Actual expenses",
-            _money(expense_total),
-            delta=_money(budget_expenses - expense_total) + " under budget"
-            if budget_expenses >= expense_total
-            else _money(expense_total - budget_expenses) + " over budget",
-            delta_color="normal" if budget_expenses >= expense_total else "inverse",
-        )
-        cards[3].metric(
-            "Actual monthly savings",
-            _money(actual_savings),
-            delta=_money(actual_savings - savings_target) + " vs goals",
-        )
-
-        st.markdown("### Plan versus actual")
-        comparison = pd.DataFrame(
+    with overview_tab:
+        st.subheader("Plan versus actual")
+        summary = pd.DataFrame(
             {
                 "Measure": ["Income", "Expenses", "Savings"],
                 "Planned PKR": [
@@ -173,74 +147,17 @@ def render_app():
                 ],
             }
         )
-        st.dataframe(comparison, hide_index=True, use_container_width=True)
+        st.dataframe(summary, hide_index=True, use_container_width=True)
 
-        left, right = st.columns(2)
+        if savings_target > actual_savings:
+            st.warning("Your savings goals are higher than this month's current surplus.")
+        elif actual_savings > 0:
+            st.success("You have a positive monthly surplus based on the amounts entered.")
 
-        with left:
-            st.markdown("### Where the money went")
-            expense_chart = expenses[["Category", "Actual PKR"]].copy()
-            expense_chart["Actual PKR"] = pd.to_numeric(
-                expense_chart["Actual PKR"], errors="coerce"
-            ).fillna(0)
-            expense_chart = expense_chart[
-                (expense_chart["Category"].astype(str).str.strip() != "")
-                & (expense_chart["Actual PKR"] > 0)
-            ].sort_values("Actual PKR", ascending=False)
-
-            if expense_chart.empty:
-                st.info("Enter actual expenses to see your spending breakdown.")
-            else:
-                st.bar_chart(
-                    expense_chart.set_index("Category"),
-                    color="#1b8063",
-                    height=300,
-                )
-
-        with right:
-            st.markdown("### Income sources")
-            income_chart = income[["Source", "Actual PKR"]].copy()
-            income_chart["Actual PKR"] = pd.to_numeric(
-                income_chart["Actual PKR"], errors="coerce"
-            ).fillna(0)
-            income_chart = income_chart[
-                (income_chart["Source"].astype(str).str.strip() != "")
-                & (income_chart["Actual PKR"] > 0)
-            ]
-
-            if income_chart.empty:
-                st.info("Enter actual income to see the source breakdown.")
-            else:
-                st.bar_chart(
-                    income_chart.set_index("Source"),
-                    color="#4a90a4",
-                    height=300,
-                )
-
-        st.markdown("### Savings goals")
-        if savings_target <= 0:
-            st.info("Add monthly targets in the Monthly budget tab to track your goals.")
-        else:
-            progress = max(0.0, min(actual_savings / savings_target, 1.0))
-            st.progress(progress)
-            st.write(
-                f"Actual savings: **{_money(actual_savings)}** "
-                f"of **{_money(savings_target)}** planned"
-            )
-            if actual_savings < savings_target:
-                st.warning(
-                    f"You are {_money(savings_target - actual_savings)} below your combined goal target."
-                )
-            else:
-                st.success("You have met your combined monthly savings target.")
-
-        st.markdown("### Bank balances")
-        st.metric("Combined current balance", _money(bank_total))
         st.caption(
-            "Figures use the entries in this app session. Download your Excel workbook "
-            "to keep a copy of your data."
+            "Data is kept in the current app session. Download the Excel workbook "
+            "to keep a copy of your entries."
         )
-
 
     with income_tab:
         st.subheader("Income sources")
