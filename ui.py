@@ -341,6 +341,11 @@ def render_app():
                         planned_savings=savings_target,
                         bank_balance=bank_total,
                     )
+
+    def _sync_editor(editor_key, data_key, columns, limit=None):
+    edited = st.session_state.get(editor_key)
+    if edited is not None:
+        st.session_state[data_key] = clean_frame(edited, columns, limit)
                 st.markdown(answer)
             except Exception as error:
                 st.error(f"Groq request failed: {error}")
