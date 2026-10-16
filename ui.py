@@ -40,117 +40,6 @@ def _money(value):
     return f"PKR {value:,.0f}"
 
 
-def render_overview(income, expenses, banks, goals, month_label):
-    income_actual = numeric_total(income, "Actual PKR")
-    income_expected = numeric_total(income, "Expected PKR")
-    expense_actual = numeric_total(expenses, "Actual PKR")
-    expense_budget = numeric_total(expenses, "Budget PKR")
-    bank_total = numeric_total(banks, "Current balance PKR")
-    savings_goal = numeric_total(goals, "Monthly target PKR")
-    surplus = income_actual - expense_actual
-
-    st.subheader(f"{month_label} dashboard")
-    st.caption("A snapshot of this month’s income, spending, savings, and bank balances.")
-
-    cards = st.columns(4)
-    cards[0].metric("Actual income", f"PKR {income_actual:,.0f}",
-                    delta=f"Plan: PKR {income_expected:,.0f}")
-    cards[1].metric("Actual expenses", f"PKR {expense_actual:,.0f}",
-                    delta=f"Budget: PKR {expense_budget:,.0f}")
-    cards[2].metric("Actual savings", f"PKR {surplus:,.0f}",
-                    delta=f"Goal: PKR {savings_goal:,.0f}")
-    cards[3].metric("Bank balances", f"PKR {bank_total:,.0f}")
-
-    if income_actual > 0:
-        savings_rate = max(0, surplus / income_actual)
-        st.progress(
-            min(savings_rate, 1.0),
-            text=f"Savings rate: {savings_rate:.1%} of actual income",
-        )
-
-    left, right = st.columns([1.2, 0.8])
-
-    with left:
-        st.markdown("#### Planned versus actual")
-        comparison = pd.DataFrame(
-            {
-                "Planned PKR": [
-                    income_expected,
-                    expense_budget,
-                    income_expected - expense_budget,
-                ],
-                "Actual PKR": [
-                    income_actual,
-                    expense_actual,
-                    surplus,
-                ],
-            },
-            index=["Income", "Expenses", "Savings"],
-        )
-        st.bar_chart(comparison, height=280)
-
-    with right:
-        st.markdown("#### Savings goals")
-        goal_rows = goals.copy()
-        goal_rows["Monthly target PKR"] = pd.to_numeric(
-            goal_rows["Monthly target PKR"], errors="coerce"
-        ).fillna(0)
-
-        goal_rows = goal_rows[goal_rows["Monthly target PKR"] > 0]
-
-        if goal_rows.empty:
-            st.caption("Add savings targets in the Monthly budget tab.")
-        else:
-            for _, row in goal_rows.iterrows():
-                target = float(row["Monthly target PKR"])
-                name = str(row["Goal"] or "Savings goal")
-                progress = min(max(surplus / target, 0), 1) if target else 0
-                st.write(f"**{name}** · PKR {target:,.0f}")
-                st.progress(progress, text=f"{progress:.0%} covered by this month's surplus")
-
-    bottom_left, bottom_right = st.columns(2)
-
-    with bottom_left:
-        st.markdown("#### Largest expense categories")
-        chart_data = expenses.copy()
-        chart_data["Actual PKR"] = pd.to_numeric(
-            chart_data["Actual PKR"], errors="coerce"
-        ).fillna(0)
-        chart_data["Category"] = chart_data["Category"].fillna("").astype(str)
-        chart_data = chart_data[chart_data["Actual PKR"] > 0]
-
-        if chart_data.empty:
-            st.caption("Enter actual expenses to see this chart.")
-        else:
-            chart_data = (
-                chart_data.groupby("Category")["Actual PKR"]
-                .sum()
-                .sort_values(ascending=False)
-                .head(8)
-            )
-            st.bar_chart(chart_data, height=260)
-
-    with bottom_right:
-        st.markdown("#### Five-year savings estimate")
-        projection = make_projection(
-            starting_balance=bank_total,
-            monthly_saving=max(0, surplus),
-            annual_return=0,
-            years=5,
-        )
-        st.line_chart(
-            projection.set_index("Year")["Projected balance PKR"],
-            height=260,
-        )
-        st.caption(
-            f"Estimated balance in five years: "
-            f"PKR {projection.iloc[-1]['Projected balance PKR']:,.0f}"
-        )
-
-    st.markdown("#### Bank accounts")
-    st.dataframe(banks, hide_index=True, use_container_width=True)
-
-
 def render_app():
     st.set_page_config(
         page_title="Ghar | Household Budget",
@@ -242,13 +131,22 @@ def render_app():
     )
 
     with overview_tab:
-    render_overview(
-        income=income,
-        expenses=expenses,
-        banks=banks,
-        goals=goals,
-        month_label=selected_month.strftime("%B %Y"),
-    )
+        st.subheader("Plan versus actual")
+        summary = pd.DataFrame(
+            {
+                "Measure": ["Income", "Expenses", "Savings"],
+                "Planned PKR": [
+                    expected_income,
+                    budget_expenses,
+                    expected_income - budget_expenses,
+                ],
+                "Actual PKR": [
+                    income_total,
+                    expense_total,
+                    actual_savings,
+                ],
+            }
+        )
         st.dataframe(summary, hide_index=True, use_container_width=True)
 
         if savings_target > actual_savings:
