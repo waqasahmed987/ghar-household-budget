@@ -130,6 +130,9 @@ def render_app():
         ]
     )
 
+
+
+
         with overview_tab:
         st.subheader("Monthly dashboard")
         st.caption(
@@ -237,6 +240,7 @@ def render_app():
             "Figures use the entries in this app session. Download your Excel workbook "
             "to keep a copy of your data."
         )
+
 
     with income_tab:
         st.subheader("Income sources")
